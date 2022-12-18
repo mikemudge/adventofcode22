@@ -73,12 +73,14 @@ function performFunction(array $function, int $item) {
 
 $inspections = array_fill(0, count($monkeys), 0);
 
-$gcd = 1;
+$lcm = 1;
 // Assuming these are all prime, which is true in my input.
+// Using the lowest common multiple as a modulo will keep each monkeys test accurate.
+// without the worry level needing to grow as high.
 for ($m = 0; $m < count($monkeys); $m++) {
-    $gcd *= $monkeys[$m]['divider'];
+    $lcm *= $monkeys[$m]['divider'];
 }
-echo "GCD is $gcd\n";
+echo "LCM is $lcm\n";
 
 // In part 1 this was 20 rounds only.
 for ($r =0; $r < 10000; $r++) {
@@ -90,7 +92,7 @@ for ($r =0; $r < 10000; $r++) {
             // Increase worry level
             $val = performFunction($monkey['function'], $item);
             // Decrease worry level
-            $val = $val % $gcd;
+            $val = $val % $lcm;
             // In Part 1 this was
             // $val = floor($val / 3);
 
