@@ -84,7 +84,9 @@ foreach($nodes as $name => $node) {
     }
 }
 
-echo(json_encode($nodes2['AA']) . PHP_EOL);
+foreach ($nodes2 as $name=>$node) {
+    echo($name . " -> " . json_encode($nodes2[$name]) . PHP_EOL);
+}
 
 function solvePart1($nodes, $nodes2) {
     // Initially at AA with 30 minutes, no pressure released and no nodes enabled.
@@ -93,7 +95,10 @@ function solvePart1($nodes, $nodes2) {
     $pq->insert($state, 0);
     $bestPressure = 0;
     $bestVisited = [];
+    $ranOutOfTime = 0;
+    $queueReads = 0;
     while($pq->valid()) {
+        $queueReads++;
         $state = $pq->extract();
         [$name, $timeRemaining, $pressure, $visited] = $state;
         if ($pressure > $bestPressure) {
@@ -113,100 +118,110 @@ function solvePart1($nodes, $nodes2) {
             // travel time + open valve time.
             $dt = $cost + 1;
             if ($dt > $timeRemaining) {
+                $ranOutOfTime++;
                 // Its not possible to make it and enable in the time remaining.
                 continue;
             }
             // Turning on the value at time $time + $dt will release pressure.
             // Calculate how much pressure it releases given the remaining time.
             $dp = ($timeRemaining - $dt) * $rate;
-            $newvisited = [];
-            $newvisited[$p] = $timeRemaining - $dt;
-            foreach ($visited as $v=>$c) {
-                $newvisited[$v] = $c;
-            }
-            $pq->insert([$p, $timeRemaining - $dt, $pressure + $dp, $newvisited], 0);
+            $visit2 = $visited;
+            $visit2[$p] = $timeRemaining - $dt;
+            $priority = 0;
+            $priority = 1000000 - ($pressure + $dp + hueristic1($timeRemaining - $dt, $visit2, $nodes));
+            $pq->insert([$p, $timeRemaining - $dt, $pressure + $dp, $visit2], $priority);
         }
     }
 
+    echo("queueIterations " . $queueReads . PHP_EOL);
+    echo("out of time " . $ranOutOfTime . PHP_EOL);
     echo(json_encode($bestVisited) . PHP_EOL);
     return $bestPressure;
 }
 
 function solvePart2($nodes, $nodes2) {
-    // Initially boath at AA with 26 minutes, no pressure released and no nodes enabled.
-    $state = ["AA", "AA", 26, 26, 0, []];
-    $pq = new SplPriorityQueue();
-    $pq->insert($state, 0);
-    $bestPressure = 0;
-    $bestVisited = [];
-    while($pq->valid()) {
-        $state = $pq->extract();
-        [$name, $eleName, $timeRemaining, $eleTimeRemaining, $pressure, $visited] = $state;
-        if ($pressure > $bestPressure) {
-            $bestVisited = $visited;
+    // Initially both at AA with 26 minutes, no pressure released and no nodes enabled.
+    $remaining = [];
+    foreach ($nodes as $name=>$n) {
+        if ($n['rate'] == 0) {
+            // No point in going to this node.
+            continue;
         }
-//        echo(json_encode($state) . PHP_EOL);
+        $remaining[$name] = true;
+    }
+    $state = ["AA", "AA", 26, 26, 0, $remaining];
+    $pq = new SplPriorityQueue();
+    $pq->setExtractFlags(SplPriorityQueue::EXTR_BOTH);
+    $pq->insert($state, 0);
+    $queueReads = 0;
+    $bestPressure = 0;
+    while($pq->valid()) {
+        $queueReads++;
+        $item = $pq->extract();
+        $state = $item['data'];
+        [$name, $eleName, $timeRemaining, $eleTimeRemaining, $pressure, $toVisit] = $state;
+        if ($queueReads % 100000 == 0) {
+            echo($queueReads . " " . (1000000 - $item['priority']) . PHP_EOL);
+            echo(json_encode($state) . PHP_EOL);
+        }
         $bestPressure = max($pressure, $bestPressure);
-        if ($timeRemaining > $eleTimeRemaining) {
-            foreach ($nodes2[$name]['paths'] as $p => $cost) {
-                if (array_key_exists($p, $visited)) {
-                    // Can't reenable this node.
-                    continue;
-                }
-                $rate = $nodes[$p]['rate'];
-                if ($rate == 0) {
-                    // No point in activating this node.
-                    continue;
-                }
-                // travel time + open valve time.
-                $dt = $cost + 1;
-                if ($dt > $timeRemaining) {
-                    // Its not possible to make it and enable in the time remaining.
-                    continue;
-                }
+        if (empty($toVisit)) {
+            // Winner
+            echo("Winner $pressure" . PHP_EOL);
+            break;
+        }
+        foreach ($toVisit as $next=>$x) {
+            // Decide who can move to next.
+            $rate = $nodes[$next]['rate'];
+            $costMe = $nodes2[$name]['paths'][$next] + 1;
+            $costEle = $nodes2[$eleName]['paths'][$next] + 1;
+
+            if ($eleTimeRemaining - $costEle >= 0 && $timeRemaining - $costMe < $eleTimeRemaining - $costEle) {
+                // Ele moves.
                 // Turning on the value at time $time + $dt will release pressure.
                 // Calculate how much pressure it releases given the remaining time.
-                $dp = ($timeRemaining - $dt) * $rate;
-                $newvisited = [];
-                $newvisited[$p] = $timeRemaining - $dt;
-                foreach ($visited as $v => $c) {
-                    $newvisited[$v] = $c;
-                }
-                $pq->insert([$p, $eleName, $timeRemaining - $dt, $eleTimeRemaining, $pressure + $dp, $newvisited], 0);
-            }
-        } else {
-            // Consider moves for the elephant
-            foreach ($nodes2[$eleName]['paths'] as $p => $cost) {
-                if (array_key_exists($p, $visited)) {
-                    // Can't reenable this node.
-                    continue;
-                }
-                $rate = $nodes[$p]['rate'];
-                if ($rate == 0) {
-                    // No point in activating this node.
-                    continue;
-                }
-                // travel time + open valve time.
-                $dt = $cost + 1;
-                if ($dt > $eleTimeRemaining) {
-                    // Its not possible to make it and enable in the time remaining.
-                    continue;
-                }
+                $dp = ($eleTimeRemaining - $costEle) * $rate;
+                $visit2 = $toVisit;
+                unset($visit2[$next]);
+//                $priority = 0;
+                $priority = 1000000 - ($pressure + $dp + hueristic($timeRemaining, $eleTimeRemaining - $costEle, $visit2, $nodes));
+                $pq->insert([$name, $next, $timeRemaining, $eleTimeRemaining - $costEle, $pressure + $dp, $visit2], $priority);
+            } else if ($timeRemaining - $costMe >= 0) {
+                // I move.
                 // Turning on the value at time $time + $dt will release pressure.
                 // Calculate how much pressure it releases given the remaining time.
-                $dp = ($eleTimeRemaining - $dt) * $rate;
-                $newvisited = [];
-                $newvisited[$p] = $eleTimeRemaining - $dt;
-                foreach ($visited as $v => $c) {
-                    $newvisited[$v] = $c;
-                }
-                $pq->insert([$name, $p, $timeRemaining, $eleTimeRemaining - $dt, $pressure + $dp, $newvisited], 0);
+                $dp = ($timeRemaining - $costMe) * $rate;
+                $visit2 = $toVisit;
+                unset($visit2[$next]);
+//                $priority = 0;
+                $priority = 1000000 - ($pressure + $dp + hueristic($timeRemaining - $costMe, $eleTimeRemaining, $visit2, $nodes));
+                $pq->insert([$next, $eleName, $timeRemaining - $costMe, $eleTimeRemaining, $pressure + $dp, $visit2], $priority);
             }
         }
     }
 
-    echo(json_encode($bestVisited) . PHP_EOL);
+    echo("queueIterations " . $queueReads . PHP_EOL);
+
     return $bestPressure;
+}
+
+function hueristic1(int $timeRemaining, array $visit2, array $nodes): int {
+    $sum = 0;
+    foreach($nodes as $name=>$node) {
+        if (array_key_exists($name, $visit2)) {
+            continue;
+        }
+        $sum += $node['rate'];
+    }
+    return $sum * $timeRemaining;
+}
+function hueristic(int $timeRemaining, int $eleTimeRemaining, array $visit2, array $nodes) {
+    $mostTime = max($timeRemaining, $eleTimeRemaining);
+    $sum = 0;
+    foreach($visit2 as $name=>$node) {
+        $sum += $nodes[$name]['rate'];
+    }
+    return $sum * $mostTime;
 }
 
 $part1 = solvePart1($nodes, $nodes2);
