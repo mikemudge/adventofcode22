@@ -18,13 +18,17 @@ class Grid {
     }
 
     public static function createFromLines($lines): Grid {
-        $width = strlen($lines[0]);
         $height = count($lines);
-        $grid = new Grid($width, $height, "");
-        $grid->rows = [];
+        $width = 0;
         foreach($lines as $line) {
+            $width = max($width, strlen($line));
+        }
+        $grid = new Grid($width, $height, " ");
+        foreach($lines as $y=>$line) {
             $row = str_split($line);
-            $grid->rows[] = $row;
+            foreach ($row as $x => $v) {
+                $grid->set($x, $y, $v);
+            }
         }
         return $grid;
     }
