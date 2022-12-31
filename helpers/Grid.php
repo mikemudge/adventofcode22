@@ -78,4 +78,14 @@ class Grid {
     public function getWidth(): int {
         return $this->width;
     }
+
+    public function getSubGrid(int $offx, int $offy, int $w, int $h): Grid {
+        $g = new Grid($w, $h, '');
+        for($y = 0; $y < $h; $y++) {
+            for($x = 0; $x < $w; $x++) {
+                $g->set($x, $y, $this->rows[$offy + $y][$offx + $x]);
+            }
+        }
+        return $g;
+    }
 }
