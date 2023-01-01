@@ -50,7 +50,7 @@ foreach ($paths as $path) {
         $py = $y;
     }
 }
-$grid->print(450, 100);
+$grid->print(450, 0, 100);
 
 $part1complete = false;
 while(true) {
@@ -86,7 +86,7 @@ while(true) {
     $grid->set($rx, $ry, "o");
     if ($part2 % 500 == 0) {
         echo("After $part2 sands drop\n");
-        $grid->print(450, 100);
+        $grid->print(450, 0, 100);
     }
     if ($rx === 500 && $ry === 0) {
         // sand has clogged the input grid location so we can stop spawning more.
@@ -94,7 +94,7 @@ while(true) {
     };
 }
 echo("After $part2 sands drop\n");
-$grid->print(450, 100);
+$grid->print(450, 0, 100);
 
 echo "Part 1: $part1\n";
 echo "Part 2: $part2\n";

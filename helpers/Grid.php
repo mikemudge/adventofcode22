@@ -32,11 +32,15 @@ class Grid {
         }
         return $grid;
     }
-    public function print($x = 0, $width = null): void {
+    public function print($x = 0, $top = 0, $width = null, $height = null): void {
         if ($width === null) {
             $width = $this->width;
         }
-        foreach($this->rows as $row) {
+        if ($height === null) {
+            $height = $this->height;
+        }
+        for ($y = $top; $y < $top + $height; $y++) {
+            $row = $this->rows[$y];
             echo(join("", array_slice($row, $x, $width)) . "\n");
         }
     }
